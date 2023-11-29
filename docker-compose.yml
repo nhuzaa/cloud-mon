@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  app:
+    image: node:14 # Or use your preferred Node.js version
+    working_dir: /usr/src/app
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "3000:3000" # Expose the app on port 3000
+    command: npm start # Replace with your app's startup command
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090" # Expose Prometheus on port 9090
+    volumes:
+      - ./prometheus:/etc/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      # Add other configuration flags as needed
+
