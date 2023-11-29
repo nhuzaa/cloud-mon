@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'express-app'
+    static_configs:
+      - targets: ['app:3000'] # 'app' is the service name defined in Docker Compose
+    metrics_path: '/metrics' # Customize the path to scrape metrics from
+

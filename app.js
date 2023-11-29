@@ -1,46 +1,67 @@
 
-const express = require('express')
-const app = express()
-const port = 3000
+const express = require('express');
+const prometheus = require('prom-client');
 
-app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
+const app = express();
+const PORT = 3000;
 
-app.get('/status', (req, res) => {
-
-  // Return JSON response with status code 200 (OK)
-  res.status(200).json({
-    message: 'Server is up and running.',
-  });
-})
-
-// Endpoint to test server uptime
-app.get('/uptime', (req, res) => {
-  // Get server uptime in milliseconds
-  const uptime = process.uptime() * 1000; // Convert to milliseconds
-
-  // Format uptime into human-readable format
-  const days = Math.floor(uptime / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((uptime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
-
-  // Prepare response JSON
-  const uptimeInfo = {
-    days,
-    hours,
-    minutes,
-    seconds,
-  };
-
-  // Return JSON response with status code 200 (OK)
-  res.status(200).json({
-    uptime: uptimeInfo,
-    message: 'Server uptime information retrieved successfully.',
-  });
+// Initialize Prometheus metrics
+const httpRequestDurationMicroseconds = new prometheus.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in microseconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.1, 5, 15, 50, 100, 500],
 });
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+// Example route with metrics instrumentation
+app.get('/example', (req, res) => {
+  const start = Date.now();
+  // Your route logic here
+  res.send('Example route');
+  const end = Date.now();
+  const elapsed = end - start;
+
+  // Record metrics for the route
+  httpRequestDurationMicroseconds
+    .labels(req.method, req.route.path, res.statusCode)
+    .observe(elapsed / 1000);
+});
+
+// Expose metrics for scraping by Prometheus
+app.get('/metrics', async (req, res) => {
+  try {
+    const metrics = await prometheus.register.metrics();
+    res.set('Content-Type', prometheus.register.contentType);
+    res.end(metrics);
+  } catch (error) {
+    res.status(500).send('Error generating metrics: ' + error.message);
+  }
+});
+
+
+// Define a Prometheus Gauge metric to monitor the API status
+const apiStatus = new prometheus.Gauge({
+  name: 'api_status',
+  help: 'Status of the API endpoint',
+});
+
+app.get('/status', (req, res) => {
+  const status = {
+    status: 'Server is running',
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    timestamp: new Date().toISOString()
+  };
+
+  // Set the Prometheus Gauge metric based on API status
+  apiStatus.set(1); // Set to 1 to indicate the API is running successfully
+
+  res.json(status);
+});
+
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+

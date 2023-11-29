@@ -8,7 +8,10 @@ services:
       - .:/usr/src/app
     ports:
       - "3000:3000" # Expose the app on port 3000
-    command: npm start # Replace with your app's startup command
+    environment:
+      NODE_ENV: development # Set the Node environment (optional)
+    command: >
+      bash -c "npm install && npm start"
 
   prometheus:
     image: prom/prometheus
